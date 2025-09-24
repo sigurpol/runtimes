@@ -402,9 +402,6 @@ impl<T: Config> AccountsMigrator<T> {
 		// - release all `holds`, `freezes`, ...
 		// - burn from target account the `balance` to be moved from RC to AH
 		// - add `balance`, `holds`, `freezes`, .. to the accounts package to be sent via XCM
-
-		let account_data: AccountData<T::Balance> = account_info.data.clone();
-
 		if !Self::can_migrate_account(&who, &account_info) {
 			log::info!(target: LOG_TARGET, "Account cannot be migrated '{}'", who.to_ss58check());
 			return Ok(None);
@@ -522,6 +519,11 @@ impl<T: Config> AccountsMigrator<T> {
 			Preservation::Expendable,
 			Fortitude::Polite,
 		);
+
+		// Get fresh account data after all transfers
+		// This ensures we calculate teleport amounts based on current state, not stale snapshot
+		let fresh_account_info = SystemAccount::<T>::get(&who);
+		let account_data: AccountData<T::Balance> = fresh_account_info.data;
 		let teleport_reserved = account_data
 			.reserved
 			.checked_sub(account_state.get_rc_reserved())

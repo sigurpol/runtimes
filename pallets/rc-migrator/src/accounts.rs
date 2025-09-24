@@ -480,6 +480,7 @@ impl<T: Config> AccountsMigrator<T> {
 
 		let locks: Vec<BalanceLock<T::Balance>> =
 			pallet_balances::Locks::<T>::get(&who).into_inner();
+
 		for lock in &locks {
 			// Expected lock ids:
 			// - "staking " : lazily migrated to holds
@@ -516,8 +517,11 @@ impl<T: Config> AccountsMigrator<T> {
 		});
 
 		let total_balance = <T as Config>::Currency::total_balance(&who);
-
-		// Calculate what should be teleported based on account state
+		let teleport_total = <T as Config>::Currency::reducible_balance(
+			&who,
+			Preservation::Expendable,
+			Fortitude::Polite,
+		);
 		let teleport_reserved = account_data
 			.reserved
 			.checked_sub(account_state.get_rc_reserved())
@@ -526,36 +530,6 @@ impl<T: Config> AccountsMigrator<T> {
 			.free
 			.checked_sub(account_state.get_rc_free())
 			.defensive_unwrap_or_default();
-		let expected_teleport_total = teleport_free + teleport_reserved;
-
-		// Check how much the balance system thinks can be reduced
-		let reducible_total = <T as Config>::Currency::reducible_balance(
-			&who,
-			Preservation::Expendable,
-			Fortitude::Polite,
-		);
-
-		// Use the expected amount, but validate against reducible amount
-		let teleport_total = if expected_teleport_total > reducible_total {
-			// Since this account cannot be fully migrated despite being classified as Migrate,
-			// we need to reclassify it as Part to preserve the non-reducible balance on RC
-			let remaining_balance = expected_teleport_total - reducible_total;
-			let preserve_free = if remaining_balance >= rc_ed { remaining_balance } else { rc_ed };
-
-			// Store the new classification in RcAccounts for consistency
-			RcAccounts::<T>::insert(
-				&who,
-				AccountState::Part {
-					free: preserve_free,
-					reserved: T::Balance::zero(),
-					consumers: 0,
-				},
-			);
-
-			reducible_total
-		} else {
-			expected_teleport_total
-		};
 
 		// This is common for many accounts.
 		// The RC migration of nomination pools to delegated-staking holds in the past caused
@@ -855,25 +829,15 @@ impl<T: Config> AccountsMigrator<T> {
 			// we prioritize the named holds over the unnamed reserve. If the account to preserve
 			// has any named holds, we will send them to the AH and keep up to the unnamed reserves
 			// `rc_reserved` on the RC.
-			let available_for_rc_reserve = total_reserved.saturating_sub(total_hold);
-			let desired_rc_reserved = expected_rc_reserved.min(available_for_rc_reserve);
-			let actual_rc_reserved = desired_rc_reserved.saturating_sub(missing_free);
+			let actual_rc_reserved = (expected_rc_reserved
+				.min(total_reserved.saturating_sub(total_hold)))
+			.saturating_sub(missing_free);
 
 			if actual_rc_reserved == 0 {
-				// Even if we can't preserve the expected deposit, we need to mark this account
-				// as partially preserved to ensure it's not fully migrated since it has
-				// protocol-level constraints. We'll keep the minimum RC ED and any available
-				// reserve.
-				let min_rc_free = if free >= rc_ed { rc_ed } else { free };
-				let min_rc_reserved = available_for_rc_reserve.min(expected_rc_reserved);
-
-				RcAccounts::<T>::insert(
-					&id,
-					AccountState::Part {
-						free: min_rc_free,
-						reserved: min_rc_reserved,
-						consumers: 1,
-					},
+				log::debug!(
+					target: LOG_TARGET,
+					"Account doesn't have enough reserved balance to keep on RC. account: {:?}.",
+					id.to_ss58check(),
 				);
 				continue;
 			}

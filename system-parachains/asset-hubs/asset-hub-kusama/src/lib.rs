@@ -650,6 +650,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				RuntimeCall::Treasury(..) |
 				RuntimeCall::Bounties(..) |
 				RuntimeCall::ChildBounties(..) |
+				RuntimeCall::MultiAssetBounties(..) |
 				RuntimeCall::ConvictionVoting(..) |
 				RuntimeCall::Referenda(..) |
 				// Not on AH RuntimeCall::FellowshipCollective(..) |
@@ -686,6 +687,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 					RuntimeCall::Bounties(..) |
 					RuntimeCall::Utility(..) |
 					RuntimeCall::ChildBounties(..) |
+					RuntimeCall::MultiAssetBounties(..) |
 					// OpenGov calls
 					RuntimeCall::ConvictionVoting(..) |
 					RuntimeCall::Referenda(..) |
@@ -1686,6 +1688,7 @@ construct_runtime!(
 		Bounties: pallet_bounties = 95,
 		ChildBounties: pallet_child_bounties = 96,
 		AssetRate: pallet_asset_rate = 97,
+		MultiAssetBounties: pallet_multi_asset_bounties = 98,
 
 		// Asset Hub Migration in the 250s
 		AhOps: pallet_ah_ops = 254,
@@ -1892,6 +1895,7 @@ mod benches {
 		[pallet_whitelist, Whitelist]
 		[pallet_bounties, Bounties]
 		[pallet_child_bounties, ChildBounties]
+		[pallet_multi_asset_bounties, MultiAssetBounties]
 		[pallet_asset_rate, AssetRate]
 		[pallet_ah_migrator, AhMigrator]
 		[pallet_indices, Indices]

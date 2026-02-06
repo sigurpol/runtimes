@@ -182,7 +182,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("kusama"),
 	impl_name: alloc::borrow::Cow::Borrowed("parity-kusama"),
 	authoring_version: 2,
-	spec_version: 2_000_007,
+	spec_version: 2_001_000,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 26,
@@ -1365,20 +1365,7 @@ impl InstanceFilter<RuntimeCall> for TransparentProxyType {
 					RuntimeCall::Utility(..) |
 					RuntimeCall::FastUnstake(..) |
 					RuntimeCall::VoterList(..) |
-					RuntimeCall::NominationPools(..) |
-					RuntimeCall::Proxy(pallet_proxy::Call::add_proxy {
-						proxy_type: TransparentProxyType(ProxyType::StakingOperator),
-						..
-					}) | RuntimeCall::Proxy(pallet_proxy::Call::remove_proxy {
-					proxy_type: TransparentProxyType(ProxyType::StakingOperator),
-					..
-				})
-			),
-			ProxyType::StakingOperator => matches!(
-				c,
-				RuntimeCall::Session(pallet_session::Call::set_keys { .. }) |
-					RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
-					RuntimeCall::Utility { .. }
+					RuntimeCall::NominationPools(..)
 			),
 			ProxyType::NominationPools => {
 				matches!(c, RuntimeCall::NominationPools(..) | RuntimeCall::Utility(..))
@@ -1420,7 +1407,6 @@ impl InstanceFilter<RuntimeCall> for TransparentProxyType {
 			(x, y) if x == y => true,
 			(ProxyType::Any, _) => true,
 			(_, ProxyType::Any) => false,
-			(ProxyType::Staking, ProxyType::StakingOperator) => true,
 			(ProxyType::NonTransfer, _) => true,
 			_ => false,
 		}

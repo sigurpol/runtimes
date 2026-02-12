@@ -323,8 +323,8 @@ pub type WaivedLocations = (
 	LocalPlurality,
 );
 
-// Asset Hub accepts incoming reserve transfers only for "Foreign Assets" and only from locations
-// explicitly set by the asset's owner.
+/// Asset Hub accepts incoming reserve transfers only for "Foreign Assets" and only from locations
+/// explicitly set by the asset's owner.
 pub type TrustedReserves = (
 	IsForeignConcreteAsset<
 		NonTeleportableAssetFromTrustedReserve<SelfParaId, crate::ForeignAssets>,

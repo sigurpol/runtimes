@@ -2122,7 +2122,7 @@ mod benches {
 				&account,
 				<Balances as Inspect<_>>::minimum_balance(),
 			));
-			// register foreign ROCs
+			// register foreign DOTs
 			assert_ok!(ForeignAssets::force_create(
 				RuntimeOrigin::root(),
 				dot_id.clone().into(),

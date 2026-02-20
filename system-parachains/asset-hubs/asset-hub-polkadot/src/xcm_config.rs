@@ -25,7 +25,7 @@ use super::{
 };
 use alloc::{collections::BTreeSet, vec, vec::Vec};
 use assets_common::{
-	matching::{FromNetwork, FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
+	matching::{IsForeignConcreteAsset, ParentLocation},
 	TrustBackedAssetsAsLocation,
 };
 use core::marker::PhantomData;
@@ -396,17 +396,26 @@ pub type WaivedLocations = (
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 ///
 /// - DOT with the parent Relay Chain and sibling system parachains; and
-/// - Sibling parachains' assets from where they originate (as `ForeignCreators`).
+/// - Foreign assets whose per-asset reserve data marks them as teleportable.
 pub type TrustedTeleporters = (
 	ConcreteAssetFromSystem<DotLocation>,
-	IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>,
+	IsForeignConcreteAsset<
+		assets_common::matching::TeleportableAssetWithTrustedReserve<
+			parachain_info::Pallet<Runtime>,
+			crate::ForeignAssets,
+		>,
+	>,
 );
 
 /// During migration we only allow teleports of foreign assets (not DOT).
 ///
-/// - Sibling parachains' assets from where they originate (as `ForeignCreators`).
-pub type TrustedTeleportersWhileMigrating =
-	IsForeignConcreteAsset<FromSiblingParachain<parachain_info::Pallet<Runtime>>>;
+/// - Foreign assets whose per-asset reserve data marks them as teleportable.
+pub type TrustedTeleportersWhileMigrating = IsForeignConcreteAsset<
+	assets_common::matching::TeleportableAssetWithTrustedReserve<
+		parachain_info::Pallet<Runtime>,
+		crate::ForeignAssets,
+	>,
+>;
 
 /// Defines all global consensus locations that Kusama Asset Hub is allowed to alias into.
 pub struct KusamaGlobalConsensus;
@@ -435,14 +444,14 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmRecorder = PolkadotXcm;
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
-	// Asset Hub trusts only particular, pre-configured bridged locations from a different consensus
-	// as reserve locations (we trust the Bridge Hub to relay the message that a reserve is being
-	// held). Asset Hub may _act_ as a reserve location for DOT and assets created
-	// under `pallet-assets`. Users must use teleport where allowed (e.g. DOT with the Relay Chain).
-	type IsReserve = (
-		bridging::to_kusama::KusamaAssetFromAssetHubKusama,
-		bridging::to_ethereum::EthereumAssetFromEthereum,
-	);
+	// Reserve trust is now fully data-driven: each foreign asset's on-chain reserve data
+	// (populated by the MBM migration) is used to determine which locations are trusted reserves.
+	type IsReserve = IsForeignConcreteAsset<
+		assets_common::matching::NonTeleportableAssetFromTrustedReserve<
+			parachain_info::Pallet<Runtime>,
+			crate::ForeignAssets,
+		>,
+	>;
 	type IsTeleporter = pallet_ah_migrator::xcm_config::TrustedTeleporters<
 		crate::AhMigrator,
 		TrustedTeleportersWhileMigrating,
@@ -873,9 +882,6 @@ pub mod bridging {
 				xcm_builder::NetworkExportTable<EthereumBridgeTableV2>,
 				snowbridge_outbound_queue_primitives::v2::XcmForSnowbridgeV2,
 			>;
-
-		pub type EthereumAssetFromEthereum =
-			IsForeignConcreteAsset<FromNetwork<UniversalLocation, EthereumNetwork>>;
 
 		impl Contains<(Location, Junction)> for UniversalAliases {
 			fn contains(alias: &(Location, Junction)) -> bool {
